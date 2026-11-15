@@ -4,6 +4,12 @@ DeepSeek Harness 的 `ptc-hybrid` 预设：**计划阶段自动切到原生工�
 
 > 起因：PTC 预设下，计划审批发生在 `run_code` 程序内部，程序预算（默认 120s、上限 600s）会把等人的时间也算进去，于是审批卡被超时杀掉。本预设把“计划”整体移出程序预算，而不是把预算调大。
 
+## English
+
+A DeepSeek Harness **agent preset** that routes tool execution by phase. While plan mode is active the session runs the native tool catalog (`read`, `grep`, `glob`, `pwsh`, `edit`, `exit_plan_mode`, …), so the plan review waits inside an ordinary tool call with no program budget. Once the plan is approved the session switches back to the stock PTC executor (`run_code` only) with the runtime's original budget.
+
+Distributed as a `dsh.bundle` package: `dsh plugin --profile <name> add github:Oyyyyyy-y/dsh-presets-plan-native-act-ptc`.
+
 ## 效果
 
 | 阶段 | 执行器 | 模型看到的工具 | 程序预算 |

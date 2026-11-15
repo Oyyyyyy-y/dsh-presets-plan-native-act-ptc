@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Plan native, act PTC",
+    "description": "An agent preset plus a router plugin: plan mode runs the native tool catalog, and approval switches the session back to stock PTC (run_code only), so plan review is not bounded by the program budget."
+  }
+}
