@@ -19,6 +19,8 @@ Distributed as a `dsh.bundle` package: `dsh plugin --profile <name> add github:O
 
 未进入过 plan mode 的会话完全不装路由，行为和原始 ptc 预设一致。
 
+![阶段分工](https://raw.githubusercontent.com/Oyyyyyy-y/dsh-presets-plan-native-act-ptc/main/assets/screenshot-1.png)
+
 ## 安装
 
 组合包声明了 `dsh.bundle.patch`，安装后由 profile 启动时合并，不需要手工改 profile 文件。
