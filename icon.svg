@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="plan act hybrid">
+  <rect width="128" height="128" rx="28" fill="#0f1115"/>
+  <rect x="22" y="30" width="34" height="68" rx="8" fill="none" stroke="#e8e8ea" stroke-width="6"/>
+  <path d="M32 44h14M32 60h14M32 76h9" stroke="#e8e8ea" stroke-width="6" stroke-linecap="round"/>
+  <path d="M74 38l18 26-18 26" fill="none" stroke="#6ea8fe" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 38l18 26-18 26" fill="none" stroke="#6ea8fe" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+</svg>
