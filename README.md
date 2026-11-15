@@ -65,6 +65,12 @@ node scripts/check-context-integrity.mjs --all
 
 细节与取舍见 [docs/design.md](docs/design.md)，实测方法与数字见 [docs/verification.md](docs/verification.md)。
 
+## 与内置 ptc 预设的差异
+
+1. **计划阶段换执行器**：在 agent scope 上挂一个路由器，plan 阶段把 `describe`/`execute` 交给原生执行器，其余阶段交给私有 `PtcExecutor`；
+2. **计划提示词改写**：内置 ptc 预设写的是“工具表不变”，这里改成“计划阶段是原生工具、执行阶段只剩 `run_code`”，避免模型在计划阶段去找 `run_code`；
+3. **阶段提醒**：`systemPrompt.context` 的 `phase:mode` 段随阶段变化，说明当前处在哪个阶段；DSH 只在文本变化时追加，不破坏请求前缀；
+4. 其余部分（插件清单、`planning` 分组、`isolate: { planMode: true }`、角色与技能）与内置 ptc 预设一致。
 ## 兼容性与升级
 
 - 在 **DSH 0.2.2-rc.3**（Windows 桌面端）实测通过；`engines.dsh` 声明为 `>=0.2.2-rc.1 <0.3.0-0`。
