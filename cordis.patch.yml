@@ -2,13 +2,18 @@
 # `dsh plugin --profile <name> add <this package>` appends this bundle to the
 # profile; profile boot merges the patch below, so no profile file needs a
 # manual edit. Regenerate with scripts/gen-cordis-patch.mjs after a DSH upgrade.
+#
+# This preset carries no agent-layer rows.
+#
+# The plan-mode `section` below is not what the model sees: the router replaces
+# it with its own reminder, configured in plugins/superset-router.mjs.
 - insert:
     - id: preset-ptc-hybrid
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: ptc-hybrid
         name: 'PTC 混合（计划=标准，执行=PTC）'
-        description: '与 ptc 相同；进 plan mode 时自动切到原生工具，批准后切回原始 PTC。刻意沿用 ptc 的排除项（workflow / 插件管理在 PTC 下会退化为坏工具）'
+        description: '工具表恒定：一次请求同时声明全部原生工具与 run_code。plan 阶段拒绝 run_code（生效工具集=标准预设，含 workflow / plugin_manager），批准后只允许 run_code、程序内拒绝 workflow / plugin_manager（生效工具集=PTC 预设）。工具声明与系统提示跨边界不变，plan 边界不再重建前缀缓存。'
         order: 3
         plugins:
           - id: persona
@@ -30,7 +35,7 @@
           - id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'
             config:
-              # Set true to add the apply_patch tool beside edit.
+              # Set false to drop the apply_patch tool beside edit.
               applyPatch: false
           - id: tool-fs-search
             name: '@deepseek-ai/dsh-tool-fs-search'
@@ -42,6 +47,9 @@
             name: '@deepseek-ai/dsh-tool-schedule'
           - id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              customSkillDirs:
+                - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@deepseek-ai/dsh-agent-preset/package.json')), 'skills')
           - id: tool-skill
             name: '@deepseek-ai/dsh-tool-skill'
           - id: command-goal
@@ -62,7 +70,7 @@
 
                     Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
 
-                    In this preset the tool catalog does change at the plan boundary: planning runs the native tools (read, grep, glob, pwsh, and so on) and execution collapses to run_code alone. Do not call run_code while planning, and do not expect the standard tools after approval. These plan-mode rules override any tool description that suggests using mutation tools; mutation tools are listed but must not be used during planning. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+                    The tool catalog is identical in both modes: every native tool and run_code are always declared, plan mode refuses run_code, and execution mode refuses direct native calls. These plan-mode rules override any tool description that suggests using mutation tools; mutation tools are listed but must not be used during planning. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
 
                     Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
 
@@ -110,12 +118,10 @@
                   toolName: subagent_fork
               - id: workflow-ptc
                 name: '@deepseek-ai/dsh-workflow-ptc'
-                disabled: true
                 config:
                   provider: spawn
               - id: tool-workflow
                 name: '@deepseek-ai/dsh-tool-workflow'
-                disabled: true
           - id: tool-ask-user
             name: '@deepseek-ai/dsh-tool-ask-user'
           - id: tool-todo
@@ -135,11 +141,12 @@
             name: '@deepseek-ai/dsh-tool-office'
           - id: tool-plugin-manager
             name: '@deepseek-ai/dsh-plugin-manager/tools'
-            disabled: true
+            disabled: !!js "!ctx.get('profileContext')"
           - id: tool-plugin-market
             name: '@deepseek-ai/dsh-plugin-market/tools'
             disabled: true
-          - id: plan-act-router
-            name: dsh-presets-plan-native-act-ptc
+          - id: superset-router
+            name: 'dsh-presets-plan-native-act-ptc'
             config:
               presets: [ptc-hybrid]
+              actHiddenTools: [workflow, plugin_manager]

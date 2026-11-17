@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "计划原生工具，执行 PTC",
-    "description": "Agent 预设 + 路由插件：计划阶段使用原生工具，批准后把会话切回原始 PTC（只剩 run_code），让计划审批不再受程序预算约束。"
+    "description": "Agent 预设 + 路由插件：一张恒定的超集工具表（原生工具 + run_code），plan 阶段拒绝 run_code、可调用工具与 standard 预设一致，批准后只允许 run_code、与 PTC 预设一致。工具声明与系统提示跨边界不变，plan 边界不再重建前缀缓存。"
   }
 }

@@ -1,22 +1,22 @@
 {
   "name": "dsh-presets-plan-native-act-ptc",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness preset: plan mode runs the native tool catalog, approved execution stays on stock PTC (run_code).",
+  "version": "0.1.4",
+  "description": "DeepSeek Harness preset: one cache-stable superset tool catalog, plan mode enforces the standard preset's tools and approved execution enforces stock PTC (run_code only).",
   "type": "module",
   "main": "index.mjs",
   "exports": {
     ".": "./index.mjs",
+    "./plugins/*": "./plugins/*.mjs",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "index.mjs",
+    "plugins",
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
     "LICENSE",
-    "docs",
-    "scripts",
     "locale"
   ],
   "engines": {
@@ -28,6 +28,9 @@
     }
   },
   "icon": "./icon.svg",
+  "scripts": {
+    "test": "node scripts/test.mjs"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",

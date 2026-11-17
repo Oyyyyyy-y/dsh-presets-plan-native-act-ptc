@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Plan native, act PTC",
-    "description": "An agent preset plus a router plugin: plan mode runs the native tool catalog, and approval switches the session back to stock PTC (run_code only), so plan review is not bounded by the program budget."
+    "description": "An agent preset plus a router plugin: one constant superset catalog (native tools + run_code). Plan mode refuses run_code so the callable set matches the standard preset; after approval only run_code is direct-callable, matching the PTC preset. Tool declarations and the system prompt never change at the boundary, so the prefix cache is preserved."
   }
 }

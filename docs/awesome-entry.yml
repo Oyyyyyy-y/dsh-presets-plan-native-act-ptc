@@ -4,6 +4,6 @@ url: https://github.com/Oyyyyyy-y/dsh-presets-plan-native-act-ptc
 name: Oyyyyyy-y/dsh-presets-plan-native-act-ptc
 category: tools
 description:
-  en: 'Agent preset plus a router plugin: plan mode runs the native tool catalog, and approval switches the session back to stock PTC (run_code only), so plan review is not bounded by the program budget.'
-  zh: 'Agent 预设 + 路由插件：计划阶段使用原生工具，批准后把会话切回原始 PTC（只剩 run_code），让计划审批不再受程序预算约束。'
+  en: 'Agent preset plus a router plugin with one constant superset tool catalog: plan mode refuses run_code so the callable set matches the standard preset, and after approval only run_code is direct-callable, matching the PTC preset. The boundary never rewrites the tool declarations or the system prompt, so the provider prefix cache survives.'
+  zh: 'Agent 预设 + 路由插件：一张恒定的超集工具表（原生工具 + run_code）。plan 阶段拒绝 run_code，可调用工具与 standard 预设一致；批准后只允许 run_code，与 PTC 预设一致。工具声明与系统提示跨边界不变，plan 边界不再重建前缀缓存。'
 icon: https://raw.githubusercontent.com/Oyyyyyy-y/dsh-presets-plan-native-act-ptc/main/assets/icon-256.png

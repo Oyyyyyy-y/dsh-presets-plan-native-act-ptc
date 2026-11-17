@@ -1,25 +1,19 @@
 # dsh-presets-plan-native-act-ptc
 
-DeepSeek Harness 的 `ptc-hybrid` 预设：**计划阶段自动切到原生工具，批准后自动切回 PTC（只剩 `run_code`）**。以 `dsh.bundle` 组合包分发，用 `dsh plugin add` 安装。
+DeepSeek Harness 的 `ptc-hybrid` 预设：**一个预设、两个阶段**。
 
-> 起因：PTC 预设下，计划审批发生在 `run_code` 程序内部，程序预算（默认 120s、上限 600s）会把等人的时间也算进去，于是审批卡被超时杀掉。本预设把“计划”整体移出程序预算，而不是把预算调大。
+- **计划（plan mode）**：顶层可调用全部原生工具，与内置 **standard** 预设一致；`run_code` 被拒绝。
+- **执行（计划批准之后）**：顶层只能用 `run_code`，与内置 **PTC** 预设一致；程序内可调用全部原生工具，`workflow` / `plugin_manager` 除外。
+- 两个阶段声明的工具表与系统提示相同，`/plan` 开关不重建请求前缀缓存（实测进 plan 命中 98%、出 plan 99%）。
 
-## English
+## 两个阶段
 
-A DeepSeek Harness **agent preset** that routes tool execution by phase. While plan mode is active the session runs the native tool catalog (`read`, `grep`, `glob`, `pwsh`, `edit`, `exit_plan_mode`, …), so the plan review waits inside an ordinary tool call with no program budget. Once the plan is approved the session switches back to the stock PTC executor (`run_code` only) with the runtime's original budget.
+| 阶段 | 顶层可直接调用 | 程序内（`run_code`） |
+|---|---|---|
+| 计划（plan mode） | 全部原生工具（`read` / `grep` / `glob` / `pwsh` / `edit` / `exit_plan_mode` / `workflow` / `plugin_manager` …） | —（计划阶段没有程序） |
+| 执行（批准之后） | 只有 `run_code` | 全部原生工具，但 `workflow` / `plugin_manager` 被拒 |
 
-Distributed as a `dsh.bundle` package: `dsh plugin --profile <name> add github:Oyyyyyy-y/dsh-presets-plan-native-act-ptc`.
-
-## 效果
-
-| 阶段 | 执行器 | 模型看到的工具 | 程序预算 |
-|---|---|---|---|
-| 计划（进入 plan mode） | `NativeToolExecutor` | `read` / `grep` / `glob` / `pwsh` / `edit` / `write` / `exit_plan_mode` 等（0.2.2-rc.3 实测 89 个） | 无（计划阶段没有 `run_code`） |
-| 执行（批准之后） | `PtcExecutor` | 只有 `run_code` | 运行时原值（实测 `Default 120000; capped at 600000`） |
-
-未进入过 plan mode 的会话完全不装路由，行为和原始 ptc 预设一致。
-
-![阶段分工](https://raw.githubusercontent.com/Oyyyyyy-y/dsh-presets-plan-native-act-ptc/main/assets/screenshot-1.png)
+需要向用户提问或等待审批时，给 `run_code` 传 `timeoutMs`（默认 120 000 ms，上限由部署配置决定，默认 600 000 ms）。
 
 ## 安装
 
@@ -29,9 +23,6 @@ Distributed as a `dsh.bundle` package: `dsh plugin --profile <name> add github:O
 # 从 GitHub
 dsh plugin --profile <profile> add github:Oyyyyyy-y/dsh-presets-plan-native-act-ptc
 
-# 从 npm（发布后）
-dsh plugin --profile <profile> add dsh-presets-plan-native-act-ptc
-
 # 本地 checkout
 dsh plugin --profile demo add ./dsh-presets-plan-native-act-ptc
 dsh --profile demo --dump-config        # 应看到 "# == dsh-presets-plan-native-act-ptc" 层
@@ -39,59 +30,29 @@ dsh --profile demo --dump-config        # 应看到 "# == dsh-presets-plan-nativ
 
 桌面端安装后重启 DSH，在会话的预设选择里选 **PTC 混合（计划=标准，执行=PTC）**。
 
-## 验证
+## 预设范围
 
-| 动作 | 期望 |
-|---|---|
-| 随便发一句话 | `request/header` 只有 1 个工具 `run_code`，描述 `Default 120000; capped at 600000` |
-| 输入 `/plan` | 下一个请求变成 89 个工具，含 `exit_plan_mode`；系统提示出现 `plan:policy` |
-| 计划卡停留 5 分钟以上再批准 | 正常返回批准，没有 `TOOL_TIMEOUT` |
-| 批准后的下一个请求 | 工具表回到 1 个 `run_code`；出现“执行阶段”提醒 |
+本包只提供一个预设 `ptc-hybrid`：standard 树 + `tool-executor-ptc` + 路由器，不带 agent 层插件行。
 
-日志里可直接核对：`request/header` 的 `tools` 数量 1 ↔ 89；`system/message` 长度（PTC ≈ 105k 字符，plan ≈ 9.6k）；`plan/mode` 事件与 `runtime-context` 的 `phase:mode` 段；`tool/ptc-dispatch` 只应出现在非 plan 窗口。
+## 故障与降级
 
-```bash
-node scripts/check-context-integrity.mjs --preset ptc-hybrid
-node scripts/check-context-integrity.mjs --session <id>
-node scripts/check-context-integrity.mjs --all
-```
+- 执行器模块加载失败：不安装路由器，会话退回预设自带的 PTC 执行器（只有 `run_code`），日志里有一条 `superset-router: ...` warn。
+- `run_code` 传输不可用：目录只声明原生工具，act 阶段放行原生工具，日志里有一条 `superset-router DEGRADED ...` error，阶段提醒会改写；不会出现没有任何工具可用的情况。
+- 想确认是否装上：看日志里的 `superset-router: installed for <session>`。
 
-它按 `agent-preset/selected` 投影判断预设（会话 header 记录的是创建时的预设，不能单看它），报告 system 节点 replace 次数、每次 `plan/mode` 切换后请求的缓存命中、每个 plan 窗口内的 `ptc-dispatch` 数。
+## 已知限制
 
-## 原理（摘要）
+- **`plan-mode` 的 `section` 配置不生效**：plan 指引在 `plugins/superset-router.mjs` 的 `planReminder`，改提示词请改那里。
+- **act 阶段没有 PTC 的 tools SDK 类型声明**：程序参数靠本请求里的工具 JSON Schema；程序的 TypeScript 规则已并入阶段提醒（runtime-context，不改系统提示）。
+- **plan 阶段仍列着 `write` / `edit`**：DSH 的 plan mode 是提示词约束而非权限门，与内置 standard 一致。
+- **`exit_plan_mode` 在 act 阶段仍被声明但不可用**：调用会被拒绝并说明原因。
+- **`plugin_manager` 可能缺席**：内置 standard 按 `profileContext` 是否可用决定是否挂载它。
+- **`run_code` 预算**：审批等待计入程序预算，需要长时间等待时显式传 `timeoutMs`。
 
-1. **按 scope 选执行器**：`ToolsService.setExecutor()` 把执行器登记在调用方的 scope 上，`selectExecutor(agent)` 沿 agent 的 scope 链找最近的登记。宿主本来就按 agent 建了 scope，所以在 agent scope 上装一个路由器，只影响这一个会话。
-2. **路由器按阶段委托**：plan 阶段 `describe`/`execute` 委托给原生执行器，其余阶段委托给私有 `PtcExecutor`。路由器常驻、永不 dispose——上游实现里释放登记会留下“不可用”而不是回退到预设执行器。
-3. **阶段来源**：`plan` 会话投影（`sessionProjections.snapshot(session, ['plan'])`）。`ctx.planMode` 在预设的 `isolate: { planMode: true }` 域里，插件在域外读不到；直接扫事件日志的 `Session.eventAt` 已被上游明确禁止新调用。
-4. **阶段提醒**：`systemPrompt.context` 注册 `phase:mode` 段，文本随阶段变化；DSH 只在文本变化时追加一条 `<system-reminder>`，因此请求前缀保持完整。
+## 兼容性
 
-细节与取舍见 [docs/design.md](docs/design.md)，实测方法与数字见 [docs/verification.md](docs/verification.md)。
-
-## 与内置 ptc 预设的差异
-
-1. **计划阶段换执行器**：在 agent scope 上挂一个路由器，plan 阶段把 `describe`/`execute` 交给原生执行器，其余阶段交给私有 `PtcExecutor`；
-2. **计划提示词改写**：内置 ptc 预设写的是“工具表不变”，这里改成“计划阶段是原生工具、执行阶段只剩 `run_code`”，避免模型在计划阶段去找 `run_code`；
-3. **阶段提醒**：`systemPrompt.context` 的 `phase:mode` 段随阶段变化，说明当前处在哪个阶段；DSH 只在文本变化时追加，不破坏请求前缀；
-4. 其余部分（插件清单、`planning` 分组、`isolate: { planMode: true }`、角色与技能）与内置 ptc 预设一致。
-## 兼容性与升级
-
-- 在 **DSH 0.2.2-rc.3**（Windows 桌面端）实测通过；`engines.dsh` 声明为 `>=0.2.2-rc.1 <0.3.0-0`。
-- 依赖的内部契约：`tools.setExecutor`/`selectExecutor` 的 scope 语义、`dsh-scope` 的 `createScope`、`plan` 投影、`plan/mode` 事件、`runtime-context` 的追加语义。这些不是公开稳定 API，**升级 DSH 后请重新验证**。
-- 预设插件清单来自内置 ptc 预设。升级后重新生成：
-
-  ```bash
-  # 先把内置预设导出成文件（asar 需要 Electron 或 asar 工具解开）
-  node scripts/gen-cordis-patch.mjs --source <导出的 ptc.patch.yml> --out cordis.patch.yml
-  ```
-
-  生成器只做文本替换，不会重排 YAML，也不会丢掉 `!!js` 标签与注释。
-
-## 已知取舍
-
-- **缓存**：工具表是请求前缀的第一段，切换阶段必然整段失效。实测进入 plan 的那一次请求重算约 13 万 tokens，之后恢复命中；退出 plan 时通常还能命中进入 plan 之前的前缀。
-- **DSH 的 plan mode 是提示词约束，不是权限门**：计划阶段仍然列着 `write`/`edit`，只是规则要求不要用。本预设不改变这一点（与 DSH 内置 standard 一致，与 ZCode 的 deny 门不同）。
-- **act 阶段完全原始**：不覆盖运行时预算、不加看门狗，审批等待照常计入程序预算（计划审批已经不在这个作用域里）。
-- 只对 `ptc-hybrid` 预设生效，其他预设零改动。
+- 在 **DSH 0.2.2-rc.3** 上开发；`engines.dsh` 声明为 `>=0.2.2-rc.1 <0.3.0-0`。
+- 升级 DSH 后可用 `scripts/gen-cordis-patch.mjs` 重新生成 `cordis.patch.yml`（开发用，不随包发布）。
 
 ## 卸载
 
@@ -102,13 +63,22 @@ dsh plugin --profile <profile> remove dsh-presets-plan-native-act-ptc
 ## 目录结构
 
 ```text
-index.mjs                       # 路由器：阶段判定 + 执行器切换 + 阶段提醒
-cordis.patch.yml                # dsh.bundle.patch：注册 ptc-hybrid 预设与其路由行
-package.json                    # dsh.bundle manifest
-scripts/gen-cordis-patch.mjs    # 从内置 ptc 预设重新生成 cordis.patch.yml
-scripts/check-context-integrity.mjs
-docs/design.md                  # 设计依据与上游引用
-docs/verification.md            # 实测方法与结果
+index.mjs                    # 包入口
+plugins/superset-router.mjs  # 路由插件：阶段策略
+cordis.patch.yml             # dsh.bundle.patch：注册 ptc-hybrid 预设
+package.json                 # dsh.bundle manifest
+locale/                      # 预设名称与描述
+docs/awesome-entry.yml       # awesome-dsh-plugin 提交用的条目
+```
+
+开发文件（`scripts/`）不随 npm 包发布，只在仓库里保留。
+
+## English
+
+A DeepSeek Harness agent preset with one tool catalog and two phases. While plan mode is active every native tool is directly callable (the standard preset's set) and `run_code` is refused. After approval only `run_code` is directly callable (the PTC preset's set); inside a program every native tool is available except `workflow` / `plugin_manager`. Both phases declare the same catalog and system prompt, so toggling plan mode does not rebuild the provider prefix cache (measured: 98% on entering plan, 99% on leaving).
+
+```bash
+dsh plugin --profile <profile> add github:Oyyyyyy-y/dsh-presets-plan-native-act-ptc
 ```
 
 ## License
